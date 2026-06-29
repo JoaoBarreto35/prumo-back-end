@@ -9,7 +9,7 @@ from app.core.settings import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.services import ensure_admin
-
+from app.api.routes.transaction_crud import router as transaction_crud_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -49,6 +49,7 @@ def create_application() -> FastAPI:
         api_router,
         prefix=settings.api_prefix,
     )
+    api_router.include_router(transaction_crud_router)
 
     @application.get("/", tags=["Root"])
     def root() -> dict[str, str]:
