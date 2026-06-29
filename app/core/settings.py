@@ -10,7 +10,11 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
     api_prefix: str = "/api/v1"
-    frontend_url: str = "http://localhost:5173"
+
+    frontend_urls: str = (
+        "http://localhost:5173,"
+        "http://127.0.0.1:5173"
+    )
 
     database_url: str
     jwt_secret: SecretStr
@@ -34,11 +38,29 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL não foi configurada.")
 
         normalized = value.strip()
+
         if normalized.startswith("postgres://"):
-            normalized = normalized.replace("postgres://", "postgresql+psycopg://", 1)
+            normalized = normalized.replace(
+                "postgres://",
+                "postgresql+psycopg://",
+                1,
+            )
         elif normalized.startswith("postgresql://"):
-            normalized = normalized.replace("postgresql://", "postgresql+psycopg://", 1)
+            normalized = normalized.replace(
+                "postgresql://",
+                "postgresql+psycopg://",
+                1,
+            )
+
         return normalized
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        return [
+            origin.strip().rstrip("/")
+            for origin in self.frontend_urls.split(",")
+            if origin.strip()
+        ]
 
     @property
     def jwt_secret_value(self) -> str:
