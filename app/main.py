@@ -14,9 +14,12 @@ from app.services import ensure_admin
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     Base.metadata.create_all(bind=engine)
+
     with SessionLocal() as session:
         ensure_admin(session)
+
     yield
+
     engine.dispose()
 
 
@@ -33,13 +36,28 @@ def create_application() -> FastAPI:
 
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=[settings.allowed_origins],
+        allow_origins=settings.allowed_origins,
+        allow_origin_regex=(
+            r"^https://.*\.(local-corp\.webcontainer\.io|webcontainer-api\.io)$"
+        ),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    application.include_router(api_router, prefix=settings.api_prefix)
+    application.include_router(
+        api_router,
+        prefix=settings.api_prefix,
+    )
+
+    @application.get("/", tags=["Root"])
+    def root() -> dict[str, str]:
+        return {
+            "message": "Prumo API está funcionando.",
+            "docs": "/docs",
+            "health": f"{settings.api_prefix}/health",
+        }
+
     return application
 
 
