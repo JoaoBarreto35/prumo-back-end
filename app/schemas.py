@@ -148,10 +148,14 @@ class GroupCreate(BaseModel):
 class TransactionRead(ORMModel):
     id: UUID
     group_id: UUID
+    account_id: UUID
+    category_id: UUID | None
+
     transaction_type: TransactionType
     description: str
     amount: Decimal
     status: TransactionStatus
+
     occurrence_date: date
     due_date: date
     sequence_number: int
