@@ -9,7 +9,7 @@ from app.core.settings import settings
 from app.db.base import Base
 from app.db.session import SessionLocal, engine
 from app.services import ensure_admin
-from app.api.routes.transaction_crud import router as transaction_crud_router
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -38,7 +38,8 @@ def create_application() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.allowed_origins,
         allow_origin_regex=(
-            r"^https://.*\.(local-corp\.webcontainer\.io|webcontainer-api\.io)$"
+            r"^https://.*\."
+            r"(local-corp\.webcontainer\.io|webcontainer-api\.io)$"
         ),
         allow_credentials=True,
         allow_methods=["*"],
@@ -49,7 +50,6 @@ def create_application() -> FastAPI:
         api_router,
         prefix=settings.api_prefix,
     )
-    api_router.include_router(transaction_crud_router)
 
     @application.get("/", tags=["Root"])
     def root() -> dict[str, str]:

@@ -1,20 +1,32 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    Query,
+    status,
+)
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_current_user
 from app.db.session import get_db
-from app.models import Transaction, TransactionGroup, User
-from app.schemas.transaction_crud import (
+from app.dependencies import get_current_user
+from app.models import (
+    Transaction,
+    TransactionGroup,
+    User,
+)
+from app.transaction_crud_schemas import (
     TransactionDeleteResult,
     TransactionDetailRead,
     TransactionEditInput,
     TransactionEditResult,
+    TransactionGroupActiveResult,
     UpdateScope,
 )
-from app.services.transaction_crud_service import (
+from app.transaction_crud_service import (
+    count_group_transactions,
     delete_transaction,
     set_group_active,
     update_transaction,
@@ -24,75 +36,61 @@ from app.services.transaction_crud_service import (
 router = APIRouter(tags=["Transaction CRUD"])
 
 
-def enum_value(value: object) -> str:
-    """
-    Retorna o valor textual de enums do banco sem depender
-    do tipo concreto usado pelo SQLAlchemy.
-    """
-    return str(getattr(value, "value", value))
-
-
 @router.get(
     "/transactions/{transaction_id}",
     response_model=TransactionDetailRead,
 )
 def get_transaction_detail(
     transaction_id: UUID,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ) -> TransactionDetailRead:
-    row = db.execute(
-        select(
-            Transaction,
-            TransactionGroup.group_type,
-            TransactionGroup.notes,
-            TransactionGroup.is_active,
-            func.count(Transaction.id)
-            .over(partition_by=Transaction.group_id)
-            .label("total_occurrences"),
-        )
-        .join(
-            TransactionGroup,
-            TransactionGroup.id == Transaction.group_id,
-        )
-        .where(
+    transaction = db.scalar(
+        select(Transaction).where(
             Transaction.id == transaction_id,
-            Transaction.user_id == current_user.id,
+            Transaction.user_id == user.id,
         )
-    ).one_or_none()
+    )
 
-    if row is None:
+    if transaction is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Movimentação não encontrada.",
         )
 
-    (
-        transaction,
-        group_type,
-        notes,
-        is_active,
-        total_occurrences,
-    ) = row
+    group = db.scalar(
+        select(TransactionGroup).where(
+            TransactionGroup.id == transaction.group_id,
+            TransactionGroup.user_id == user.id,
+        )
+    )
+
+    if group is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Grupo da movimentação não encontrado.",
+        )
 
     return TransactionDetailRead(
         id=transaction.id,
         group_id=transaction.group_id,
         account_id=transaction.account_id,
         category_id=transaction.category_id,
-        transaction_type=enum_value(
-            transaction.transaction_type
-        ),
+        transaction_type=transaction.transaction_type,
         description=transaction.description,
         amount=transaction.amount,
-        status=enum_value(transaction.status),
+        status=transaction.status,
         occurrence_date=transaction.occurrence_date,
         due_date=transaction.due_date,
         sequence_number=transaction.sequence_number,
-        group_type=enum_value(group_type),
-        notes=notes,
-        total_occurrences=total_occurrences,
-        is_group_active=is_active,
+        group_type=group.group_type,
+        notes=transaction.notes or group.notes,
+        total_occurrences=count_group_transactions(
+            db,
+            group_id=group.id,
+            user_id=user.id,
+        ),
+        is_group_active=group.is_active,
     )
 
 
@@ -103,13 +101,13 @@ def get_transaction_detail(
 def edit_transaction(
     transaction_id: UUID,
     payload: TransactionEditInput,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ) -> TransactionEditResult:
     return update_transaction(
         db,
         transaction_id=transaction_id,
-        user_id=current_user.id,
+        user_id=user.id,
         payload=payload,
     )
 
@@ -123,44 +121,46 @@ def remove_transaction(
     scope: UpdateScope = Query(
         default=UpdateScope.SINGLE,
     ),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
 ) -> TransactionDeleteResult:
     return delete_transaction(
         db,
         transaction_id=transaction_id,
-        user_id=current_user.id,
+        user_id=user.id,
         scope=scope,
     )
 
 
 @router.patch(
     "/transaction-groups/{group_id}/activate",
+    response_model=TransactionGroupActiveResult,
 )
 def activate_group(
     group_id: UUID,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+) -> TransactionGroupActiveResult:
     return set_group_active(
         db,
         group_id=group_id,
-        user_id=current_user.id,
+        user_id=user.id,
         active=True,
     )
 
 
 @router.patch(
     "/transaction-groups/{group_id}/deactivate",
+    response_model=TransactionGroupActiveResult,
 )
 def deactivate_group(
     group_id: UUID,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+) -> TransactionGroupActiveResult:
     return set_group_active(
         db,
         group_id=group_id,
-        user_id=current_user.id,
+        user_id=user.id,
         active=False,
     )
