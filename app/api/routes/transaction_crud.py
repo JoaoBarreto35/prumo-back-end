@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_current_user
+from app.dependencies import get_current_user
 from app.db.session import get_session
 from app.models import Transaction, TransactionGroup, User
 from app.schemas.transaction_crud import (
