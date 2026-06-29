@@ -1,8 +1,13 @@
 from fastapi import APIRouter
 
-from app.api.routes.health import router as health_router
-
+from app.api.routes import accounts, admin, auth, categories, closings, health, lume, transactions
 
 api_router = APIRouter()
-
-api_router.include_router(health_router)
+api_router.include_router(health.router)
+api_router.include_router(auth.router)
+api_router.include_router(accounts.router)
+api_router.include_router(categories.router)
+api_router.include_router(transactions.router)
+api_router.include_router(closings.router)
+api_router.include_router(lume.router)
+api_router.include_router(admin.router)

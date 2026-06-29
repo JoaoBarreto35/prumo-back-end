@@ -1,29 +1,12 @@
-# Python
 __pycache__/
 *.py[cod]
-*.pyd
-*.so
-
-# Virtual environment
 .venv/
 venv/
-
-# Environment variables
 .env
-
-# Tests and coverage
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Linters
-.mypy_cache/
-.ruff_cache/
-
-# IDE
 .vscode/
 .idea/
-
-# Operating system
 .DS_Store
 Thumbs.db
