@@ -11,6 +11,7 @@ from app.api.routes import (
     notifications,
     planning,
     settings,
+    transaction_bulk,
     transaction_crud,
     transactions,
 )
@@ -23,6 +24,7 @@ api_router.include_router(auth.router)
 api_router.include_router(accounts.router)
 api_router.include_router(categories.router)
 api_router.include_router(transactions.router)
+api_router.include_router(transaction_bulk.router)
 api_router.include_router(transaction_crud.router)
 api_router.include_router(planning.router)
 api_router.include_router(closings.router)
