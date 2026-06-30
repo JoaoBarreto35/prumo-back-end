@@ -10,6 +10,7 @@ from app.api.routes import (
     lume,
     notifications,
     planning,
+    settings,
     transaction_crud,
     transactions,
 )
@@ -28,3 +29,4 @@ api_router.include_router(closings.router)
 api_router.include_router(lume.router)
 api_router.include_router(admin.router)
 api_router.include_router(notifications.router)
+api_router.include_router(settings.router)
