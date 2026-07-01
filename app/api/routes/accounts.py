@@ -1,42 +1,203 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select, update
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies import get_current_user
-from app.models.entities import Account, User
-from app.schemas import AccountCreate, AccountRead
+from app.models.entities import User
+from app.structure_schemas import (
+    AccountArchiveInput,
+    AccountCreateInput,
+    AccountDeleteInput,
+    AccountManagementRead,
+    AccountTransferInput,
+    AccountUpdateInput,
+    StructureImpactRead,
+    StructureOperationResult,
+)
+from app.structure_service import (
+    activate_account,
+    archive_account,
+    create_account,
+    delete_account,
+    get_account_impact,
+    list_accounts,
+    set_default_account,
+    transfer_account,
+    update_account,
+)
 
-router = APIRouter(prefix="/accounts", tags=["Accounts"])
+
+router = APIRouter(
+    prefix="/accounts",
+    tags=["Accounts"],
+)
 
 
-@router.get("", response_model=list[AccountRead])
-def list_accounts(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    return db.scalars(select(Account).where(Account.user_id == user.id).order_by(Account.name)).all()
+@router.get(
+    "",
+    response_model=list[AccountManagementRead],
+)
+def get_accounts(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return list_accounts(
+        db,
+        user_id=user.id,
+    )
 
 
-@router.post("", response_model=AccountRead, status_code=201)
-def create_account(data: AccountCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if data.is_default:
-        db.execute(update(Account).where(Account.user_id == user.id).values(is_default=False))
+@router.post(
+    "",
+    response_model=AccountManagementRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def post_account(
+    payload: AccountCreateInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return create_account(
+        db,
+        user_id=user.id,
+        payload=payload,
+    )
 
-    account = Account(user_id=user.id, **data.model_dump())
-    db.add(account)
-    db.commit()
-    db.refresh(account)
-    return account
+
+@router.put(
+    "/{account_id}",
+    response_model=AccountManagementRead,
+)
+def put_account(
+    account_id: UUID,
+    payload: AccountUpdateInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return update_account(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+        payload=payload,
+    )
 
 
-@router.patch("/{account_id}/deactivate", response_model=AccountRead)
-def deactivate(account_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    account = db.scalar(select(Account).where(Account.id == account_id, Account.user_id == user.id))
-    if not account:
-        raise HTTPException(status_code=404, detail="Conta não encontrada.")
-    if account.is_default:
-        raise HTTPException(status_code=400, detail="A conta padrão não pode ser inativada.")
-    account.is_active = False
-    db.commit()
-    db.refresh(account)
-    return account
+@router.get(
+    "/{account_id}/impact",
+    response_model=StructureImpactRead,
+)
+def get_account_operation_impact(
+    account_id: UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return get_account_impact(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+    )
+
+
+@router.post(
+    "/{account_id}/default",
+    response_model=AccountManagementRead,
+)
+def post_default_account(
+    account_id: UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return set_default_account(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+    )
+
+
+@router.post(
+    "/{account_id}/activate",
+    response_model=AccountManagementRead,
+)
+def post_activate_account(
+    account_id: UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return activate_account(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+    )
+
+
+@router.post(
+    "/{account_id}/archive",
+    response_model=AccountManagementRead,
+)
+def post_archive_account(
+    account_id: UUID,
+    payload: AccountArchiveInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return archive_account(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+        payload=payload,
+    )
+
+
+@router.patch(
+    "/{account_id}/deactivate",
+    response_model=AccountManagementRead,
+)
+def compatibility_deactivate_account(
+    account_id: UUID,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return archive_account(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+        payload=AccountArchiveInput(),
+    )
+
+
+@router.post(
+    "/{account_id}/transfer",
+    response_model=StructureOperationResult,
+)
+def post_transfer_account(
+    account_id: UUID,
+    payload: AccountTransferInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return transfer_account(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+        payload=payload,
+    )
+
+
+@router.post(
+    "/{account_id}/delete",
+    response_model=StructureOperationResult,
+)
+def post_delete_account(
+    account_id: UUID,
+    payload: AccountDeleteInput,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return delete_account(
+        db,
+        user_id=user.id,
+        account_id=account_id,
+        payload=payload,
+    )
