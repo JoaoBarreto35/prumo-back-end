@@ -31,16 +31,66 @@ def register(data: RegisterRequest, db: Session = Depends(get_db)):
     return user
 
 
-@router.post("/login", response_model=TokenResponse)
-def login(data: LoginRequest, db: Session = Depends(get_db)):
-    result = authenticate(db, data.email, data.password, data.device_name)
-    if result is None:
-        raise HTTPException(status_code=401, detail="E-mail ou senha inválidos.")
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+)
+def login(
+    data: LoginRequest,
+    db: Session = Depends(get_db),
+):
+    user = db.scalar(
+        select(User).where(
+            func.lower(User.email)
+            == data.email.lower()
+        )
+    )
 
-    user, access, refresh = result
+    if (
+        user is None
+        or not verify_password(
+            data.password,
+            user.password_hash,
+        )
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "E-mail ou senha inválidos."
+            ),
+        )
+
     if user.status != UserStatus.ACTIVE:
-        raise HTTPException(status_code=403, detail=f"Acesso indisponível: {user.status.value}.")
-    return TokenResponse(access_token=access, refresh_token=refresh)
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Acesso indisponível: "
+                f"{user.status.value}."
+            ),
+        )
+
+    result = authenticate(
+        db,
+        data.email,
+        data.password,
+        data.device_name,
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=401,
+            detail=(
+                "E-mail ou senha inválidos."
+            ),
+        )
+
+    _, access, refresh = result
+
+    return TokenResponse(
+        access_token=access,
+        refresh_token=refresh,
+    )
+
 
 
 @router.post("/refresh", response_model=TokenResponse)
