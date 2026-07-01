@@ -143,7 +143,7 @@ def create_group(db: Session, user_id: UUID, data: GroupCreate) -> TransactionGr
 
 
     if data.category_id is not None:
-    category = db.scalar(
+        category = db.scalar(
         select(Category).where(
             Category.id == data.category_id,
             Category.user_id == user_id,
