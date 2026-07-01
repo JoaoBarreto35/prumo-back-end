@@ -128,14 +128,50 @@ def calculate_due_date(account: Account, start_date: date) -> date:
 
 
 def create_group(db: Session, user_id: UUID, data: GroupCreate) -> TransactionGroup:
-    account = db.scalar(select(Account).where(Account.id == data.account_id, Account.user_id == user_id))
+    account = db.scalar(
+    select(Account).where(
+        Account.id == data.account_id,
+        Account.user_id == user_id,
+        Account.is_active.is_(True),
+    )
+)
+
     if account is None:
-        raise ValueError("Conta não encontrada.")
+        raise ValueError(
+            "Conta não encontrada ou inativa."
+        )
+
 
     if data.category_id is not None:
-        category = db.scalar(select(Category).where(Category.id == data.category_id, Category.user_id == user_id))
-        if category is None:
-            raise ValueError("Categoria não encontrada.")
+    category = db.scalar(
+        select(Category).where(
+            Category.id == data.category_id,
+            Category.user_id == user_id,
+            Category.is_active.is_(True),
+        )
+    )
+
+    if category is None:
+        raise ValueError(
+            "Categoria não encontrada ou inativa."
+        )
+
+    expected_application = (
+        CategoryApplication.INCOME
+        if data.transaction_type
+        == TransactionType.INCOME
+        else CategoryApplication.EXPENSE
+    )
+
+    if category.application not in {
+        expected_application,
+        CategoryApplication.BOTH,
+    }:
+        raise ValueError(
+            "A categoria selecionada não pode "
+            "ser usada neste tipo de movimentação."
+        )
+
 
     if data.group_type == GroupType.SINGLE:
         count = 1

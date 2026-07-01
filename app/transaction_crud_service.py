@@ -515,6 +515,25 @@ def set_group_active(
         user_id=user_id,
     )
     group.is_active = active
+    if active:
+    account = session.scalar(
+        select(Account).where(
+            Account.id == group.account_id,
+            Account.user_id == user_id,
+            Account.is_active.is_(True),
+        )
+    )
+
+    if account is None:
+        raise HTTPException(
+            status_code=(
+                status.HTTP_409_CONFLICT
+            ),
+            detail=(
+                "Reative ou transfira a conta "
+                "antes de reativar este grupo."
+            ),
+        )
 
     session.commit()
 
