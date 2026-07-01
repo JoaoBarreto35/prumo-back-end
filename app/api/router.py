@@ -6,6 +6,7 @@ from app.api.routes import (
     auth,
     categories,
     closings,
+    data_management,
     health,
     lume,
     notifications,
@@ -34,3 +35,4 @@ api_router.include_router(lume.router)
 api_router.include_router(admin.router)
 api_router.include_router(notifications.router)
 api_router.include_router(settings.router)
+api_router.include_router(data_management.router)
